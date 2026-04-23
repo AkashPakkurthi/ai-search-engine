@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Web Crawler{% endblock %}
+
+{% block content %}
+<div class="crawl-page">
+    <h1>Distributed Web Crawler</h1>
+    <p class="page-description">
+        Submit a URL to crawl. Celery workers will fetch pages in parallel and add them to the search index.
+    </p>
+
+    <form class="crawl-form" id="crawlForm" onsubmit="return startCrawl(event)">
+        <div class="form-group">
+            <label for="crawlUrl">Seed URL</label>
+            <input
+                type="url"
+                id="crawlUrl"
+                class="form-input"
+                placeholder="https://example.com"
+                required
+            />
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="maxPages">Max Pages</label>
+                <input type="number" id="maxPages" class="form-input" value="50" min="1" max="500" />
+            </div>
+            <div class="form-group">
+                <label for="crawlDepth">Link Depth</label>
+                <input type="number" id="crawlDepth" class="form-input" value="2" min="1" max="5" />
+            </div>
+        </div>
+        <button type="submit" class="btn-primary" id="crawlBtn">Start Crawl</button>
+    </form>
+
+    <div id="crawlMessage" class="crawl-message" style="display:none;"></div>
+
+    <h2 class="section-title">Recent Crawl Jobs</h2>
+    <div id="crawlJobs" class="crawl-jobs">
+        <div class="loading">Loading jobs...</div>
+    </div>
+</div>
+
+<script>
+loadCrawlJobs();
+
+async function startCrawl(e) {
+    e.preventDefault();
+    const btn = document.getElementById('crawlBtn');
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+
+    try {
+        const resp = await fetch('/api/crawl', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: document.getElementById('crawlUrl').value,
+                max_pages: parseInt(document.getElementById('maxPages').value),
+                depth: parseInt(document.getElementById('crawlDepth').value),
+            }),
+        });
+        const data = await resp.json();
+
+        const msgEl = document.getElementById('crawlMessage');
+        msgEl.style.display = 'block';
+        msgEl.className = 'crawl-message success';
+        msgEl.textContent = `Job #${data.job_id} started! ${data.message}`;
+
+        // Refresh job list
+        setTimeout(loadCrawlJobs, 1000);
+    } catch (err) {
+        const msgEl = document.getElementById('crawlMessage');
+        msgEl.style.display = 'block';
+        msgEl.className = 'crawl-message error';
+        msgEl.textContent = `Failed: ${err.message}`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Start Crawl';
+    }
+    return false;
+}
+
+async function loadCrawlJobs() {
+    try {
+        const resp = await fetch('/api/crawl');
+        const jobs = await resp.json();
+        const container = document.getElementById('crawlJobs');
+
+        if (jobs.length === 0) {
+            container.innerHTML = '<div class="no-data">No crawl jobs yet. Submit a URL above!</div>';
+            return;
+        }
+
+        container.innerHTML = jobs.map(j => `
+            <div class="job-card ${j.status}">
+                <div class="job-header">
+                    <span class="job-id">#${j.job_id}</span>
+                    <span class="job-status status-${j.status}">${j.status}</span>
+                </div>
+                <div class="job-url">${escapeHtml(j.seed_url)}</div>
+                <div class="job-meta">
+                    <span>Pages: ${j.pages_crawled}/${j.max_pages}</span>
+                    <span>Started: ${new Date(j.created_at).toLocaleString()}</span>
+                    ${j.finished_at ? `<span>Finished: ${new Date(j.finished_at).toLocaleString()}</span>` : ''}
+                </div>
+                ${j.status === 'running' ? '<div class="progress-bar"><div class="progress-fill" style="width:' + Math.round(j.pages_crawled/j.max_pages*100) + '%"></div></div>' : ''}
+            </div>
+        `).join('');
+
+        // Auto-refresh if any jobs are running
+        if (jobs.some(j => j.status === 'running' || j.status === 'pending')) {
+            setTimeout(loadCrawlJobs, 3000);
+        }
+    } catch (err) {
+        document.getElementById('crawlJobs').innerHTML =
+            `<div class="error-msg">Failed to load jobs: ${err.message}</div>`;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

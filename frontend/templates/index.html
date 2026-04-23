@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}AI Search Engine - Home{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1 class="hero-title">AI-Powered Search</h1>
+    <p class="hero-subtitle">
+        Distributed web crawler with hybrid search: keyword, semantic, and AI-enhanced results powered by Claude.
+    </p>
+
+    <form class="search-form-hero" id="heroSearchForm" onsubmit="return handleHeroSearch(event)">
+        <div class="search-input-wrapper">
+            <input
+                type="text"
+                name="q"
+                id="heroQuery"
+                class="search-input-hero"
+                placeholder="Search the indexed web..."
+                autocomplete="off"
+                autofocus
+            />
+            <select name="mode" id="heroMode" class="mode-select-hero">
+                <option value="hybrid">Hybrid</option>
+                <option value="semantic">Semantic</option>
+                <option value="keyword">Keyword</option>
+            </select>
+            <button type="submit" class="search-btn-hero">Search</button>
+        </div>
+    </form>
+
+    <div class="hero-features">
+        <div class="feature-card">
+            <div class="feature-icon">&#128269;</div>
+            <h3>Hybrid Search</h3>
+            <p>Combines TF-IDF keyword matching with FAISS semantic embeddings using Reciprocal Rank Fusion.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">&#129302;</div>
+            <h3>AI Summaries</h3>
+            <p>Claude analyzes results and generates intelligent summaries that directly answer your queries.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">&#127760;</div>
+            <h3>Distributed Crawler</h3>
+            <p>Celery workers crawl the web in parallel. Submit any URL and build your own search index.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function handleHeroSearch(e) {
+    e.preventDefault();
+    const q = document.getElementById('heroQuery').value.trim();
+    const mode = document.getElementById('heroMode').value;
+    if (q) {
+        window.location.href = `/search?q=${encodeURIComponent(q)}&mode=${mode}`;
+    }
+    return false;
+}
+</script>
+{% endblock %}

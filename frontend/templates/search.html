@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Search - {{ query }}{% endblock %}
+
+{% block content %}
+<div class="search-page">
+    <form class="search-form-bar" id="searchForm" onsubmit="return handleSearch(event)">
+        <input
+            type="text"
+            name="q"
+            id="searchQuery"
+            class="search-input-bar"
+            value="{{ query }}"
+            placeholder="Search..."
+            autocomplete="off"
+        />
+        <select name="mode" id="searchMode" class="mode-select-bar">
+            <option value="hybrid" {% if mode == 'hybrid' %}selected{% endif %}>Hybrid</option>
+            <option value="semantic" {% if mode == 'semantic' %}selected{% endif %}>Semantic</option>
+            <option value="keyword" {% if mode == 'keyword' %}selected{% endif %}>Keyword</option>
+        </select>
+        <button type="submit" class="search-btn-bar">Search</button>
+    </form>
+
+    <div id="searchStatus" class="search-status" style="display:none;">
+        <div class="spinner"></div>
+        <span>Searching...</span>
+    </div>
+
+    <div id="aiSummary" class="ai-summary-box" style="display:none;">
+        <div class="ai-summary-header">
+            <span class="ai-badge">AI Summary</span>
+            <span id="enhancedQuery" class="enhanced-query"></span>
+        </div>
+        <div id="aiSummaryContent" class="ai-summary-content"></div>
+    </div>
+
+    <div id="searchMeta" class="search-meta" style="display:none;">
+        <span id="resultCount"></span>
+        <span id="searchModeLabel"></span>
+    </div>
+
+    <div id="searchResults" class="search-results"></div>
+
+    <div id="pagination" class="pagination" style="display:none;"></div>
+</div>
+
+<script>
+let currentPage = 1;
+let currentQuery = '{{ query }}';
+let currentMode = '{{ mode }}';
+
+if (currentQuery) {
+    performSearch();
+}
+
+function handleSearch(e) {
+    e.preventDefault();
+    currentQuery = document.getElementById('searchQuery').value.trim();
+    currentMode = document.getElementById('searchMode').value;
+    currentPage = 1;
+    if (currentQuery) {
+        history.pushState(null, '', `/search?q=${encodeURIComponent(currentQuery)}&mode=${currentMode}`);
+        performSearch();
+    }
+    return false;
+}
+
+async function performSearch() {
+    const statusEl = document.getElementById('searchStatus');
+    const resultsEl = document.getElementById('searchResults');
+    const summaryEl = document.getElementById('aiSummary');
+    const metaEl = document.getElementById('searchMeta');
+
+    statusEl.style.display = 'flex';
+    resultsEl.innerHTML = '';
+    summaryEl.style.display = 'none';
+    metaEl.style.display = 'none';
+
+    try {
+        const resp = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: currentQuery,
+                mode: currentMode,
+                page: currentPage,
+                per_page: 10,
+            }),
+        });
+        const data = await resp.json();
+
+        statusEl.style.display = 'none';
+
+        // AI Summary
+        const firstResult = data.results && data.results[0];
+        if (firstResult && firstResult.ai_summary) {
+            document.getElementById('aiSummaryContent').textContent = firstResult.ai_summary;
+            if (data.ai_enhanced_query) {
+                document.getElementById('enhancedQuery').textContent =
+                    `Enhanced query: "${data.ai_enhanced_query}"`;
+            } else {
+                document.getElementById('enhancedQuery').textContent = '';
+            }
+            summaryEl.style.display = 'block';
+        }
+
+        // Meta
+        document.getElementById('resultCount').textContent =
+            `${data.total} results found`;
+        document.getElementById('searchModeLabel').textContent =
+            `Mode: ${data.mode}`;
+        metaEl.style.display = 'flex';
+
+        // Results
+        if (data.results.length === 0) {
+            resultsEl.innerHTML = '<div class="no-results">No results found. Try crawling some websites first!</div>';
+            return;
+        }
+
+        data.results.forEach(r => {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.innerHTML = `
+                <a href="${escapeHtml(r.url)}" class="result-url" target="_blank">${escapeHtml(r.url)}</a>
+                <h3 class="result-title">
+                    <a href="${escapeHtml(r.url)}" target="_blank">${escapeHtml(r.title || 'Untitled')}</a>
+                </h3>
+                <p class="result-snippet">${escapeHtml(r.snippet)}</p>
+                <span class="result-score">Score: ${r.score}</span>
+            `;
+            resultsEl.appendChild(card);
+        });
+
+        // Pagination
+        renderPagination(data.total, data.page, data.per_page);
+
+    } catch (err) {
+        statusEl.style.display = 'none';
+        resultsEl.innerHTML = `<div class="error-msg">Search failed: ${err.message}</div>`;
+    }
+}
+
+function renderPagination(total, page, perPage) {
+    const paginationEl = document.getElementById('pagination');
+    const totalPages = Math.ceil(total / perPage);
+    if (totalPages <= 1) {
+        paginationEl.style.display = 'none';
+        return;
+    }
+    paginationEl.style.display = 'flex';
+    let html = '';
+    if (page > 1) {
+        html += `<button class="page-btn" onclick="goToPage(${page - 1})">Prev</button>`;
+    }
+    for (let i = 1; i <= totalPages && i <= 10; i++) {
+        html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+    if (page < totalPages) {
+        html += `<button class="page-btn" onclick="goToPage(${page + 1})">Next</button>`;
+    }
+    paginationEl.innerHTML = html;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    performSearch();
+    window.scrollTo(0, 0);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

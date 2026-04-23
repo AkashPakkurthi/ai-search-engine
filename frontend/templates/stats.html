@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Search Engine Stats{% endblock %}
+
+{% block content %}
+<div class="stats-page">
+    <h1>Engine Statistics</h1>
+
+    <div id="statsCards" class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-value" id="totalPages">--</div>
+            <div class="stat-label">Indexed Pages</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalDomains">--</div>
+            <div class="stat-label">Unique Domains</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalJobs">--</div>
+            <div class="stat-label">Crawl Jobs</div>
+        </div>
+    </div>
+
+    <div class="stats-actions">
+        <button class="btn-secondary" onclick="reindex()">Rebuild Search Index</button>
+    </div>
+
+    <h2 class="section-title">Recent Crawls</h2>
+    <div id="recentCrawls" class="crawl-jobs">
+        <div class="loading">Loading...</div>
+    </div>
+
+    <div id="reindexMsg" class="crawl-message" style="display:none;"></div>
+</div>
+
+<script>
+loadStats();
+
+async function loadStats() {
+    try {
+        const resp = await fetch('/api/stats');
+        const data = await resp.json();
+
+        document.getElementById('totalPages').textContent = data.total_pages.toLocaleString();
+        document.getElementById('totalDomains').textContent = data.total_domains.toLocaleString();
+        document.getElementById('totalJobs').textContent = data.total_crawl_jobs.toLocaleString();
+
+        const container = document.getElementById('recentCrawls');
+        if (data.recent_crawls.length === 0) {
+            container.innerHTML = '<div class="no-data">No crawl jobs yet.</div>';
+            return;
+        }
+        container.innerHTML = data.recent_crawls.map(j => `
+            <div class="job-card ${j.status}">
+                <div class="job-header">
+                    <span class="job-id">#${j.job_id}</span>
+                    <span class="job-status status-${j.status}">${j.status}</span>
+                </div>
+                <div class="job-url">${escapeHtml(j.seed_url)}</div>
+                <div class="job-meta">
+                    <span>Pages: ${j.pages_crawled}/${j.max_pages}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Failed to load stats:', err);
+    }
+}
+
+async function reindex() {
+    const msgEl = document.getElementById('reindexMsg');
+    msgEl.style.display = 'block';
+    msgEl.className = 'crawl-message';
+    msgEl.textContent = 'Rebuilding index...';
+
+    try {
+        const resp = await fetch('/api/reindex', { method: 'POST' });
+        const data = await resp.json();
+        msgEl.className = 'crawl-message success';
+        msgEl.textContent = data.message;
+    } catch (err) {
+        msgEl.className = 'crawl-message error';
+        msgEl.textContent = `Failed: ${err.message}`;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Search Engine{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">
+                <span class="brand-icon">&#9906;</span> AI Search
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/search" class="nav-link">Search</a>
+                <a href="/crawl" class="nav-link">Crawler</a>
+                <a href="/stats" class="nav-link">Stats</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>AI-Powered Distributed Search Engine &mdash; Built with FastAPI, Celery, FAISS &amp; Claude</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
