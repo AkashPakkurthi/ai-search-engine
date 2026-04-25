@@ -3,7 +3,9 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    openai_base_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
     database_url: str = "sqlite:///./search_engine.db"
     crawl_depth: int = 2

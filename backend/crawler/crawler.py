@@ -110,6 +110,8 @@ async def crawl(
                     data = extract_text(html, url)
                     if len(data["content"]) < 50:
                         return  # Skip near-empty pages
+                    if len(results) >= max_pages:
+                        return
                     domain = urlparse(url).netloc
                     results.append({
                         "url": url,

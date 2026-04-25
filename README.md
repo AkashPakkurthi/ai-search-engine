@@ -1,6 +1,6 @@
 # AI-Powered Distributed Search Engine
 
-A full-stack search engine built with Python that combines distributed web crawling, hybrid search (keyword + semantic), and AI-powered result summarization using Claude.
+A full-stack search engine built with Python that combines distributed web crawling, hybrid search (keyword + semantic), and AI-powered result summarization using OpenAI.
 
 ## Architecture
 
@@ -16,7 +16,7 @@ A full-stack search engine built with Python that combines distributed web crawl
 └──────┬────────────┬──────────────┬──────────────────────┘
        │            │              │
 ┌──────▼───┐  ┌─────▼─────┐  ┌────▼─────┐  ┌────────────┐
-│  Search  │  │  Celery   │  │  SQLite  │  │  Claude    │
+│  Search  │  │  Celery   │  │  SQLite  │  │  OpenAI    │
 │  Engine  │  │  Workers  │  │   / DB   │  │  API (AI)  │
 │          │  │           │  └──────────┘  └────────────┘
 │ TF-IDF + │  │  Async    │
@@ -43,7 +43,7 @@ A full-stack search engine built with Python that combines distributed web crawl
 - Configurable depth and max pages per job
 - Live progress tracking in the UI
 
-### AI-Powered Features (Claude API)
+### AI-Powered Features (OpenAI API)
 - **Query Enhancement** — Rewrites search queries for better recall
 - **Result Summarization** — Generates concise answers from top search results
 - Works without an API key — AI features are gracefully skipped
@@ -62,7 +62,7 @@ A full-stack search engine built with Python that combines distributed web crawl
 | Task Queue       | Celery + Redis                      |
 | Search (Keyword) | scikit-learn TF-IDF                 |
 | Search (Semantic)| sentence-transformers + FAISS       |
-| AI               | Anthropic Claude API                |
+| AI               | OpenAI API (or compatible: Groq, Ollama) |
 | Crawler          | aiohttp + BeautifulSoup             |
 | Database         | SQLite (default), PostgreSQL-ready  |
 | Frontend         | Jinja2 + Vanilla JS                 |
@@ -75,7 +75,7 @@ A full-stack search engine built with Python that combines distributed web crawl
 ```bash
 # Clone and configure
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY (optional)
+# Edit .env and add your OPENAI_API_KEY (optional)
 
 # Start all services
 docker-compose up --build
@@ -123,7 +123,10 @@ All settings are in `.env`:
 
 ```env
 # Required for AI features (optional — app works without it)
-ANTHROPIC_API_KEY=sk-ant-api03-...
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+# Optional: point at any OpenAI-compatible provider (Groq, Ollama, etc.)
+# OPENAI_BASE_URL=https://api.groq.com/openai/v1
 
 # Redis broker for Celery
 REDIS_URL=redis://localhost:6379/0
@@ -171,7 +174,7 @@ ai-search-engine/
 │   ├── search/
 │   │   └── engine.py        # TF-IDF + FAISS hybrid search
 │   └── ai/
-│       └── summarizer.py    # Claude query enhancement + summarization
+│       └── summarizer.py    # OpenAI query enhancement + summarization
 ├── frontend/
 │   ├── templates/           # Jinja2 HTML templates
 │   │   ├── base.html
