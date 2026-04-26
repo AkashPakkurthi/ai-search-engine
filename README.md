@@ -22,12 +22,12 @@ A full-stack search engine built with Python that combines distributed web crawl
 │ TF-IDF + │  │  Async    │
 │ FAISS    │  │  Crawler  │
 │ (Hybrid) │  │           │
-└──────────┘  └─────┬─────┘
-                    │
-              ┌─────▼─────┐
-              │   Redis   │
-              │  (Broker) │
-              └───────────┘
+└─────┬────┘  └─────┬─────┘
+      │             │
+      │       ┌─────▼─────────────┐
+      └──────▶│      Redis        │
+              │ (Broker + Cache)  │
+              └───────────────────┘
 ```
 
 ## Features
@@ -48,6 +48,13 @@ A full-stack search engine built with Python that combines distributed web crawl
 - **Result Summarization** — Generates concise answers from top search results
 - Works without an API key — AI features are gracefully skipped
 
+### Search Result Caching
+- **Redis-backed cache** for `/api/search` responses
+- Repeated queries return in **<10ms** instead of 1–3s (no LLM call, no FAISS read)
+- Keys are scoped per `(query, mode, page, per_page)` so different modes don't collide
+- 1-hour TTL as a safety net
+- **Auto-invalidated** after every crawl completion and `POST /api/reindex` — never serve stale results
+
 ### Frontend
 - Dark-themed responsive UI
 - Real-time crawl job monitoring with auto-refresh
@@ -60,6 +67,7 @@ A full-stack search engine built with Python that combines distributed web crawl
 |------------------|-------------------------------------|
 | Backend          | FastAPI, SQLAlchemy (async)         |
 | Task Queue       | Celery + Redis                      |
+| Cache            | Redis (search-result cache, 1h TTL) |
 | Search (Keyword) | scikit-learn TF-IDF                 |
 | Search (Semantic)| sentence-transformers + FAISS       |
 | AI               | OpenAI API (or compatible: Groq, Ollama) |
@@ -128,7 +136,7 @@ OPENAI_MODEL=gpt-4o-mini
 # Optional: point at any OpenAI-compatible provider (Groq, Ollama, etc.)
 # OPENAI_BASE_URL=https://api.groq.com/openai/v1
 
-# Redis broker for Celery
+# Redis — used both as Celery's broker AND as the search-result cache
 REDIS_URL=redis://localhost:6379/0
 
 # Database (SQLite default, supports PostgreSQL)
@@ -158,6 +166,8 @@ curl -X POST http://localhost:8000/api/search \
   -d '{"query": "machine learning", "mode": "hybrid", "page": 1, "per_page": 10}'
 ```
 
+The first call computes results via TF-IDF + FAISS + LLM (~1–3s) and caches the JSON response in Redis under `search:<sha1(query|mode|page|per_page)>`. Subsequent identical calls hit the cache and return in <10ms. The cache is automatically wiped whenever a crawl finishes or `POST /api/reindex` runs, so stale results aren't served after the index changes.
+
 ## Project Structure
 
 ```
@@ -173,8 +183,9 @@ ai-search-engine/
 │   │   └── tasks.py         # Celery distributed tasks
 │   ├── search/
 │   │   └── engine.py        # TF-IDF + FAISS hybrid search
-│   └── ai/
-│       └── summarizer.py    # OpenAI query enhancement + summarization
+│   ├── ai/
+│   │   └── summarizer.py    # OpenAI query enhancement + summarization
+│   └── cache.py             # Redis search-result cache + invalidation
 ├── frontend/
 │   ├── templates/           # Jinja2 HTML templates
 │   │   ├── base.html

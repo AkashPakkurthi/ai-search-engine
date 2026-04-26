@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from backend.config import get_settings
 from backend.models.schemas import Base, Page, CrawlJob
 from backend.crawler.crawler import crawl
+from backend.cache import invalidate_search_cache
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -95,6 +96,9 @@ def crawl_website(self, job_id: int, seed_url: str, max_pages: int = 50, depth: 
         from backend.search.engine import SearchEngine
         engine = SearchEngine(db)
         engine.build_index()
+
+        # Invalidate cached search results since the index changed
+        invalidate_search_cache()
 
         # Mark job complete
         job.status = "completed"

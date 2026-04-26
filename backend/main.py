@@ -24,6 +24,7 @@ from backend.models.schemas import (
 from backend.search.engine import SearchEngine
 from backend.ai.summarizer import enhance_query, summarize_results
 from backend.crawler.tasks import crawl_website
+from backend.cache import get_cached_search, set_cached_search, invalidate_search_cache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -78,6 +79,10 @@ async def stats_page(request: Request):
 
 @app.post("/api/search", response_model=SearchResponse)
 async def api_search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
+    cached = get_cached_search(req.query, req.mode, req.page, req.per_page)
+    if cached is not None:
+        return cached
+
     # Enhance query with AI
     enhanced_query = await enhance_query(req.query)
 
@@ -114,7 +119,7 @@ async def api_search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
         if results and ai_summary:
             results[0].ai_summary = ai_summary
 
-        return SearchResponse(
+        response = SearchResponse(
             query=req.query,
             ai_enhanced_query=enhanced_query if enhanced_query != req.query else None,
             results=results,
@@ -123,6 +128,8 @@ async def api_search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
             per_page=req.per_page,
             mode=req.mode,
         )
+        set_cached_search(req.query, req.mode, req.page, req.per_page, response)
+        return response
     finally:
         sync_db.close()
 
@@ -245,6 +252,7 @@ async def api_reindex():
     try:
         engine = SearchEngine(sync_db)
         engine.build_index()
+        invalidate_search_cache()
         return {"message": "Index rebuilt successfully"}
     finally:
         sync_db.close()
