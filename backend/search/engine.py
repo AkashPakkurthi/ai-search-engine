@@ -32,7 +32,9 @@ def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
         logger.info("Loading sentence-transformer model...")
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        # Force CPU. macOS MPS (GPU) breaks inside Celery's prefork workers
+        # because the Metal compiler service handle doesn't survive fork().
+        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
     return _embedding_model
 
 

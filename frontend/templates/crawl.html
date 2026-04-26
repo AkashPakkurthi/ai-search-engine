@@ -67,6 +67,9 @@ async function startCrawl(e) {
         msgEl.className = 'crawl-message success';
         msgEl.textContent = `Job #${data.job_id} started! ${data.message}`;
 
+        // Reset form so the user doesn't accidentally re-submit the same URL
+        document.getElementById('crawlForm').reset();
+
         // Refresh job list
         setTimeout(loadCrawlJobs, 1000);
     } catch (err) {
